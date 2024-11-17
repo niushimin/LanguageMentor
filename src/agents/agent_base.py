@@ -2,17 +2,26 @@ import json
 from abc import ABC, abstractmethod
 
 from langchain_ollama.chat_models import ChatOllama  # 导入 ChatOllama 模型
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder  # 导入提示模板相关类
+from langchain_openai import ChatOpenAI  # 导入 ChatOpenAI 模型
+from langchain_core.prompts import (
+    ChatPromptTemplate,
+    MessagesPlaceholder,
+)  # 导入提示模板相关类
 from langchain_core.messages import HumanMessage  # 导入消息类
-from langchain_core.runnables.history import RunnableWithMessageHistory  # 导入带有消息历史的可运行类
+from langchain_core.runnables.history import (
+    RunnableWithMessageHistory,
+)
+
+from src.utils.logger import LOG  # 导入带有消息历史的可运行类
 
 from .session_history import get_session_history  # 导入会话历史相关方法
-from utils.logger import LOG  # 导入日志工具
+
 
 class AgentBase(ABC):
     """
     抽象基类，提供代理的共有功能。
     """
+
     def __init__(self, name, prompt_file, intro_file=None, session_id=None):
         self.name = name
         self.prompt_file = prompt_file
@@ -49,20 +58,25 @@ class AgentBase(ABC):
         初始化聊天机器人，包括系统提示和消息历史记录。
         """
         # 创建聊天提示模板，包括系统提示和消息占位符
-        system_prompt = ChatPromptTemplate.from_messages([
-            ("system", self.prompt),  # 系统提示部分
-            MessagesPlaceholder(variable_name="messages"),  # 消息占位符
-        ])
-
-        # 初始化 ChatOllama 模型，配置参数
-        self.chatbot = system_prompt | ChatOllama(
-            model="llama3.1:8b-instruct-q8_0",  # 使用的模型名称
-            max_tokens=8192,  # 最大生成的 token 数
-            temperature=0.8,  # 随机性配置
+        system_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", self.prompt),  # 系统提示部分
+                MessagesPlaceholder(variable_name="messages"),  # 消息占位符
+            ]
         )
 
+        # 初始化 ChatOllama 模型，配置参数
+        # self.chatbot = system_prompt | ChatOllama(
+        #     model="llama3.1:8b-instruct-q8_0",  # 使用的模型名称
+        #     max_tokens=8192,  # 最大生成的 token 数
+        #     temperature=0.8,  # 随机性配置
+        # )
+        self.chatbot = system_prompt | ChatOpenAI(model="gpt-4o-mini")
+
         # 将聊天机器人与消息历史记录关联
-        self.chatbot_with_history = RunnableWithMessageHistory(self.chatbot, get_session_history)
+        self.chatbot_with_history = RunnableWithMessageHistory(
+            self.chatbot, get_session_history
+        )
 
     def chat_with_history(self, user_input, session_id=None):
         """
